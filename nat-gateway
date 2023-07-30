@@ -1,0 +1,35 @@
+variable "availability_zones" {
+  type    = list(string)
+  default = ["us-south-1a", "us-south-1b"]  # Replace with your desired availability zones
+}
+
+# Create a NAT Gateway and Elastic IP per availability zone
+resource "aws_nat_gateway" "nat_gateway" {
+  count = length(var.availability_zones)
+
+  subnet_id = aws_subnet.public_subnet[count.index].id
+  allocation_id = aws_eip.nat_eip[count.index].id
+
+  tags = {
+    Name = "NATGateway-${var.availability_zones[count.index]}"
+  }
+}
+
+resource "aws_eip" "nat_eip" {
+  count = length(var.availability_zones)
+
+  vpc = true
+
+  tags = {
+    Name = "NATGatewayEIP-${var.availability_zones[count.index]}"
+  }
+}
+
+# Add routes to the public route table for each NAT Gateway
+resource "aws_route" "nat_gateway_route" {
+  count = length(var.availability_zones)
+
+  route_table_id         = aws_route_table.public_route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat_gateway[count.index].id
+}
